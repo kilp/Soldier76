@@ -1177,6 +1177,9 @@ function OnEvent (event, arg, family)
 
 	-- Whether to open the capitalization key or not
 	if not pubg.ok then return false end
+	if not pubg.runStatus() then
+		return false
+	end
 
 	OutputLogMessage("event = %s, arg = %s, family = %s\n", event, arg, family)
 	-- console.log("event = " .. event .. ", arg = " .. arg .. ", family = " .. family)
