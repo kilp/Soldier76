@@ -42,13 +42,13 @@ userInfo = {
 	startControl = "capslock",
 
 	-- 瞄准设置 (default - 使用游戏默认设置 | recommend - 使用脚本推荐设置 | custom - 自定义设置) | Aiming setting
-	aimingSettings = "recommend",
+	aimingSettings = "default",
 
 	-- 当 aimingSettings = "custom" ，需要在此处设置自定义判断条件，通常配合 IsMouseButtonPressed 或 IsModifierPressed 使用，使用方法请查阅 G-series Lua API 参考文档.docx
 	customAimingSettings = {
 		-- 开镜判断
 		ADS = function ()
-			return false -- 判断条件，返回值为布尔型
+			return true -- 判断条件，返回值为布尔型
 		end,
 		-- 腰射判断
 		Aim = function ()
@@ -509,22 +509,15 @@ end
 function pubg.execOptions (options)
 
 	--[[
-
 		from
-
 		{
 			{ 5, 10 },
 			{ 10, 24 },
 		}
-
 		to
-
 		{ 10, 10, 10, 10, 10, 24, 24, 24, 24, 24 }
-
 		to
-
 		{ 10, 20, 30, 40, 50, 74, 98, 122, 146, 170 }
-
 	]]
 
 	-- Temporary container
@@ -633,13 +626,26 @@ function pubg.SetRandomseed ()
 
 end
 
+function pubg.autoShoot( options )
+	
+	repeat
+		if (IsMouseButtonPressed(1)) then
+			OutputLogMessage("pugb.autoShoot \n")
+			pubg.auto(options)
+		else 
+			pubg.isLeftKeyClicked = false
+			pubg.bulletIndex = 0
+		end
+	until ( not pubg.isLeftKeyClicked )
+end
+
 --[[ Before automatic press gun ]]
 function pubg.auto (options)
-
-	-- Accurate aiming press gun
 	pubg.currentTime = GetRunningTime()
+	-- Accurate aiming press gun	
 	pubg.bulletIndex = math.ceil(((pubg.currentTime - pubg.startTime == 0 and {1} or {pubg.currentTime - pubg.startTime})[1]) / options.interval) + 1
 
+	OutputLogMessage("bulletIndex: %d, amount: %d \n", pubg.bulletIndex, options.amount)
 	if pubg.bulletIndex > options.amount then return false end
 	-- Developer Debugging Mode
 	local d = (IsKeyLockOn("scrolllock") and { (pubg.bulletIndex - 1) * pubg.xLengthForDebug } or { 0 })[1]
@@ -648,6 +654,7 @@ function pubg.auto (options)
 	-- 4-fold pressure gun mode
 	local realY = pubg.getRealY(y)
 	MoveMouseRelative(x, realY)
+	OutputLogMessage("pugb.shoot MoveMouseRelative x: %d, y: %d \n", x, realY)
 	-- Whether to issue automatically or not
 	if options.autoContinuousFiring == 1 then
 		PressAndReleaseMouseButton(1)
@@ -1099,31 +1106,54 @@ function pubg.PressOrRelaseAimKey (toggle)
 	end
 end
 
+pubg.isLeftKeyClicked = false
+
 --[[ Automatic press gun ]]
 function pubg.OnEvent_NoRecoil (event, arg, family)
+	OutputLogMessage("OnEvent_NoRecoil 1 \n")
+	if not pubg.runStatus() then 
+			OutputLogMessage("OnEvent_NoRecoil 3 \n")
+			OutputLogMessage("runStatus: false")
+			return false 
+		end
 	if event == "MOUSE_BUTTON_PRESSED" and arg == 1 and family == "mouse" and pubg.ok then
-		if not pubg.runStatus() then return false end
+		OutputLogMessage("OnEvent_NoRecoil 2 \n")
+		
+		OutputLogMessage("OnEvent_NoRecoil 4 \n")
 		if userInfo.aimingSettings ~= "default" and not IsMouseButtonPressed(3) then
+			OutputLogMessage("OnEvent_NoRecoil 5 \n")
+			OutputLogMessage("OnEvent_NoRecoil aimingSettings = %s \n", userInfo.aimingSettings)
 			pubg.PressOrRelaseAimKey(true)
 		end
 		if pubg.isAimingState("ADS") or pubg.isAimingState("Aim") then
+			OutputLogMessage("OnEvent_NoRecoil 6 \n")
+			OutputLogMessage("isAimingState : true \n")
 			pubg.startTime = GetRunningTime()
 			pubg.G1 = true
 			SetMKeyState(1)
+			pubg.isLeftKeyClicked = true
+			pubg.autoShoot(pubg.gunOptions[pubg.bulletType][pubg.gunIndex])
 		end
 	end
 
+	OutputLogMessage("OnEvent_NoRecoil 7 \n")
+
 	if event == "MOUSE_BUTTON_RELEASED" and arg == 1 and family == "mouse" then
+		OutputLogMessage("OnEvent_NoRecoil 8 \n")
 		pubg.PressOrRelaseAimKey(false)
 		pubg.G1 = false
 		pubg.counter = 0 -- Initialization counter
 		pubg.xCounter = 0 -- Initialization xCounter
 		pubg.SetRandomseed() -- Reset random number seeds
+		pubg.isLeftKeyClicked = false
+		pubg.bulletIndex = 0
 	end
 
 	if event == "M_PRESSED" and arg == 1 and pubg.G1 and pubg.ok then
+		OutputLogMessage("OnEvent_NoRecoil 9 \n")
 		pubg.auto(pubg.gunOptions[pubg.bulletType][pubg.gunIndex])
 		SetMKeyState(1)
+		OutputLogMessage("OnEvent_NoRecoil 10 \n")
 	end
 end
 
@@ -1148,7 +1178,7 @@ function OnEvent (event, arg, family)
 	-- Whether to open the capitalization key or not
 	if not pubg.ok then return false end
 
-	-- OutputLogMessage("event = %s, arg = %s, family = %s\n", event, arg, family)
+	OutputLogMessage("event = %s, arg = %s, family = %s\n", event, arg, family)
 	-- console.log("event = " .. event .. ", arg = " .. arg .. ", family = " .. family)
 
 	pubg.OnEvent_NoRecoil(event, arg, family)
@@ -1329,7 +1359,7 @@ end
 --[[ Other ]]
 EnablePrimaryMouseButtonEvents(true) -- Enable left mouse button event reporting
 pubg.GD = GetDate -- Setting aliases
-pubg.ok = pubg.isEffective
+pubg.ok = true
 pubg.init() -- Script initialization
 
 --[[ Script End ]]
